@@ -677,28 +677,14 @@ int SMTPClientBase::authenticateWithMethodLogin() {
 }
 
 int SMTPClientBase::setMailRecipients(const Message &pMsg) {
-    const int INVALID_ADDRESS { 501 };
+
     const int SENDER_OK { 250 };
     const int RECIPIENT_OK { 250 };
-    std::vector<std::string> mailFormats;
-    // Method 1, 2 and 3
-    mailFormats.push_back("MAIL FROM: <"s + pMsg.getFrom().getDisplayName() + " " + pMsg.getFrom().getEmailAddress() + ">\r\n"s);
-    mailFormats.push_back("MAIL FROM: "s + pMsg.getFrom().getEmailAddress() + "\r\n"s);
-    mailFormats.push_back("MAIL FROM: <"s + pMsg.getFrom().getEmailAddress() + ">\r\n"s);
+    std::string mailFormat = "MAIL FROM: <"s + pMsg.getFrom().getEmailAddress() + ">\r\n";
 
+    addCommunicationLogItem(mailFormat.c_str());
+    int mail_from_ret_code = (*this.*sendCommandWithFeedbackPtr)(mailFormat.c_str(), CLIENT_SENDMAIL_MAILFROM_ERROR, CLIENT_SENDMAIL_MAILFROM_TIMEOUT);
 
-    int mail_from_ret_code { 0 };
-    for (const auto &format : mailFormats) {
-        addCommunicationLogItem(format.c_str());
-        mail_from_ret_code = (*this.*sendCommandWithFeedbackPtr)(format.c_str(), CLIENT_SENDMAIL_MAILFROM_ERROR, CLIENT_SENDMAIL_MAILFROM_TIMEOUT);
-
-        if (mail_from_ret_code == SENDER_OK) {
-            break;
-        }
-        if (mail_from_ret_code != INVALID_ADDRESS) {
-            return mail_from_ret_code;
-        }
-    }
     // If no compatible format were found
     if (mail_from_ret_code != SENDER_OK) {
         return mail_from_ret_code;
@@ -746,7 +732,8 @@ int SMTPClientBase::setMailHeaders(const Message &pMsg) {
 
     // Mail headers
     // From
-    int header_from_ret_code = addMailHeader("From", pMsg.getFrom().getEmailAddress(), CLIENT_SENDMAIL_HEADERFROM_ERROR);
+    std::string from_header =  "\"" + std::string(pMsg.getFrom().getDisplayName()) + "\" <" + pMsg.getFrom().getEmailAddress() + ">";
+    int header_from_ret_code = addMailHeader("From", from_header.c_str() , CLIENT_SENDMAIL_HEADERFROM_ERROR);
     if (header_from_ret_code != 0) {
         return header_from_ret_code;
     }
